@@ -21,6 +21,10 @@
 #include <linux/netfilter_bridge.h>
 #include "br_private.h"
 
+#include <net/mpls.h> //add by here 
+#include <linux/if_arp.h> //add by here
+#include <net/sock.h> //add by here
+
 static int deliver_clone(const struct net_bridge_port *prev,
 			 struct sk_buff *skb,
 			 void (*__packet_hook)(const struct net_bridge_port *p,
@@ -44,6 +48,30 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
 	/* drop mtu oversized packets except gso */
 	if (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))
 		kfree_skb(skb);
+	else if(skb->dev->type == ARPHRD_MPLS_TUNNEL){
+		struct sk_buff *vpls_skb = NULL;
+		vpls_skb = skb_copy(skb, GFP_ATOMIC);
+		if (vpls_skb) {
+			if (vpls_skb->sk)
+				skb_set_owner_w(vpls_skb, skb->sk);
+			/* until we can pass the proto driver via mpls_output_shim
+			 * we'll let it look it up for us based on skb->protocol */
+			vpls_skb->protocol = htons(ETH_P_ALL);
+
+			/* skb->mac.raw is where the L2 header begins, push
+			 * the SKB to make skb->data == skb->mac.raw, then
+			 * set skb->nh.raw = skb->data, skb->nh.raw is where
+			 * we put the MPLS shim
+			 */
+			skb_push(vpls_skb, vpls_skb->data - vpls_skb->mac.raw);
+			vpls_skb->nh.raw = vpls_skb->data;
+			//if(vpls_skb->input_dev->type==ARPHRD_MPLS_TUNNEL)
+				//kfree_skb(vpls_skb);//If STP enable; this code should be marked. 
+				//Enable Split Horizon  mechanism
+			//else
+			mpls_tunnel_xmit(vpls_skb,vpls_skb->dev);
+		}
+	}
 	else {
 		/* ip_fragment doesn't copy the MAC header */
 		if (nf_bridge_maybe_copy_header(skb))
