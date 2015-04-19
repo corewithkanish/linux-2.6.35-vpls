@@ -40,6 +40,7 @@
 #define	MPLS_GRP_NHLFE	2
 #define	MPLS_GRP_XC	4
 #define	MPLS_GRP_LABELSPACE 8
+#define	MPLS_GRP_TUNNEL 16
 
 #define MPLS_IPV4_EXPLICIT_NULL	0       /* only valid as sole label stack entry
 					   Pop label and send to IPv4 stack */
