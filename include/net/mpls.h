@@ -460,6 +460,13 @@ int  mpls_switch(struct sk_buff *skb);
 int  mpls_output_shim (struct sk_buff *skb, struct mpls_nhlfe *nhlfe);
 int  mpls_output2(struct sk_buff *skb,struct mpls_nhlfe *nhlfe);
 
+extern void (*mpls_interrupt)(int, void *, struct pt_regs *);//add by here
+void mpls_regular_interrupt(int irq, void *dev_id, struct pt_regs *regs); // add by here
+void mpls_napi_interrupt(int irq, void *dev_id, struct pt_regs *regs); //add by here
+int  mpls_re_tx(struct sk_buff *skb, struct net_device *dev);//add by here
+int mpls_re_tx(struct sk_buff *skb, struct net_device *dev);//add by here
+int  mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev); //add by here 
+
 /****************************************************************************
  * MPLS Destination (dst) Next hop (neighbour) cache management
  * net/mpls/mpls_dst.c
@@ -586,12 +593,22 @@ int mpls_set_labelspace             (struct mpls_labelspace_req *req);
 int mpls_set_labelspace_by_name     (const char *name, int labelspace);
 int mpls_set_labelspace_by_index    (int ifindex, int labelspace);
 
+struct net_device* mpls_tunnel_get_by_name (const char* name);
+struct net_device* mpls_tunnel_get         (struct mpls_tunnel_req *mt);
+void               mpls_tunnel_put         (struct net_device *dev);
+struct net_device* mpls_tunnel_create      (struct mpls_tunnel_req *mt);
+void               mpls_tunnel_destroy     (struct mpls_tunnel_req *mt);
+int                mpls_tunnel_add         (struct mpls_tunnel_req *mt);
+int                mpls_tunnel_del         (struct mpls_tunnel_req *mt);
+
 /* Netlink event notification */
 void mpls_ilm_event(int event, struct mpls_ilm *ilm);
 void mpls_nhlfe_event(int event, struct mpls_nhlfe *nhlfe, int seq, int pid);
 void mpls_labelspace_event(int event, struct net_device *dev);
 void mpls_xc_event(int event, struct mpls_ilm *ilm,
 	struct mpls_nhlfe *nhlfe);
+//void mpls_tunnel_event(int event, struct net_device *dev);
+void mpls_tunnel_event(int event);
 
 /****************************************************************************
  * REFERENCE COUNT MANAGEMENT 
@@ -676,14 +693,26 @@ struct mpls_tunnel_private {
 	struct mpls_tunnel_private    *next;
 	/* Netdevice (this tunnel) traffic stats      */
 	struct net_device_stats        stat;
+	/*Add by here*/
+	int status;
+	struct mpls_packet *ppool;
+	struct mpls_packet *rx_queue;  /* List of incoming packets */
+	int rx_int_enabled;
+	int tx_packetlen;
+	u8 *tx_packetdata;
+	struct sk_buff *skb;
+	spinlock_t lock;
+	/*end by here*/
 };
-
-
-struct net_device* mpls_tunnel_get_by_name (const char* name);
-struct net_device* mpls_tunnel_get         (struct mpls_tunnel_req *mt);
-void               mpls_tunnel_put         (struct net_device *dev); 
-struct net_device* mpls_tunnel_create      (struct mpls_tunnel_req *mt);
-void               mpls_tunnel_destroy     (struct mpls_tunnel_req *mt); 
+/*
+ * A structure representing an in-flight packet.
+ */
+struct mpls_packet{
+	struct mpls_packet *next;
+	struct net_device *dev;
+	int	datalen;
+	u8 data[ETH_DATA_LEN];
+};
 
 /* Casts */
 #define _mpls_as_if(PTR)    ((struct mpls_interface*)(PTR))
