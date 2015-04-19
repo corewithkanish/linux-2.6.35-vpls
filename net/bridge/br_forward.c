@@ -63,8 +63,8 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
 			 * set skb->nh.raw = skb->data, skb->nh.raw is where
 			 * we put the MPLS shim
 			 */
-			skb_push(vpls_skb, vpls_skb->data - vpls_skb->mac_header.raw);
-			vpls_skb->network_header.raw = vpls_skb->data;
+			skb_push(vpls_skb, vpls_skb->data - vpls_skb->mac_header);
+			vpls_skb->network_header = vpls_skb->data;
 			//if(vpls_skb->input_dev->type==ARPHRD_MPLS_TUNNEL)
 				//kfree_skb(vpls_skb);//If STP enable; this code should be marked. 
 				//Enable Split Horizon  mechanism
