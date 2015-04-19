@@ -371,7 +371,8 @@ void mpls_napi_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	priv->status = 0;
 	if (statusword & MPLS_RX_INTR) {
 		mpls_rx_ints(dev, 0);  /* Disable further interrupts */
-		netif_rx_schedule(dev);
+		//netif_rx_schedule(dev);
+		napi_schedule(&priv->napi);
 	}
 	if (statusword & MPLS_TX_INTR) {
         	/* a transmission is over: free the skb */
@@ -743,7 +744,7 @@ static void
 mpls_tunnel_setup (struct net_device *dev) 
 {
 	struct mpls_tunnel_private *priv; //add by here
-	SET_MODULE_OWNER(dev);
+	//SET_MODULE_OWNER(dev);
 	/* Callbacks */
 	dev->destructor      = mpls_tunnel_destructor;
 	dev->netdev_ops      = &mpls_tunnel_ndo;
@@ -830,7 +831,7 @@ __mpls_tunnel_del (char *if_na)
 	struct net_device *dev;
 	MPLS_ENTER;
 	sprintf(mpls_tunnel_name,"%s",if_na);
-	dev = __dev_get_by_name (if_na);
+	dev = __dev_get_by_name (&init_net, if_na);
 	//mpls_tunnel_destructor(dev);
 	if (likely(dev)) {
 		unregister_netdev(dev);

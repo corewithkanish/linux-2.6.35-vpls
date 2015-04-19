@@ -465,7 +465,7 @@ void mpls_regular_interrupt(int irq, void *dev_id, struct pt_regs *regs); // add
 void mpls_napi_interrupt(int irq, void *dev_id, struct pt_regs *regs); //add by here
 int  mpls_re_tx(struct sk_buff *skb, struct net_device *dev);//add by here
 int mpls_re_tx(struct sk_buff *skb, struct net_device *dev);//add by here
-int  mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev); //add by here 
+int mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev); //add by here 
 
 /****************************************************************************
  * MPLS Destination (dst) Next hop (neighbour) cache management
@@ -702,6 +702,7 @@ struct mpls_tunnel_private {
 	u8 *tx_packetdata;
 	struct sk_buff *skb;
 	spinlock_t lock;
+	struct napi_struct napi;
 	/*end by here*/
 };
 /*
