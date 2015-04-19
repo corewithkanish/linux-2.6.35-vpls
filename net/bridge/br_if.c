@@ -390,6 +390,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
 	struct net_bridge_port *p;
 	int err = 0;
 
+	unsigned char   tunnel_addr[MAX_ADDR_LEN]; //add by here 
+	memcpy(tunnel_addr,dev->dev_addr,ETH_ALEN);//add by here
+
 	/* Don't allow bridging non-ethernet like devices */
 	if ((dev->flags & IFF_LOOPBACK) ||
 	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN)
@@ -420,7 +423,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
 	if (err)
 		goto err0;
 
-	err = br_fdb_insert(br, p, dev->dev_addr);
+	//err = br_fdb_insert(br, p, dev->dev_addr);
+	err = br_fdb_insert(br, p, tunnel_addr);
 	if (err)
 		goto err1;
 
