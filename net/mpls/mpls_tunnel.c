@@ -48,6 +48,7 @@
 #include <linux/rtnetlink.h>
 #include <net/net_namespace.h>
 #include <net/mpls.h>
+#include <linux/genetlink.h>
 
 /**
  * MODULE Information and attributes
@@ -384,6 +385,11 @@ mpls_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			retval = 0;
 			break;
 
+		/*create new tunnel interface*/
+		case SIOCDEVPRIVATE + 2:
+			MPLS_DEBUG("Create new tunnel interface.\n");
+			break;
+
 		default:
 			retval = -EINVAL;
 	}
@@ -451,6 +457,20 @@ mpls_tunnel_setup (struct net_device *dev)
 	MPLS_EXIT;
 }
 
+//add by here for create the tunnel interface 
+static int 
+__mpls_tunnel_add (struct net_device *dev)
+{
+//	struct mpls_interface *mpls_ptr = dev->mpls_ptr;
+
+	MPLS_ENTER;
+
+//	mpls_tunnel_event(MPLS_CMD_ADDTUNNEL,dev);
+	MPLS_EXIT;
+	return 0;
+}
+//end by here
+
 /**
  *	mpls_tunnel_init_module - main tunnel init routine.
  *
@@ -513,5 +533,24 @@ mpls_tunnel_exit_module (void)
 	return;
 }
 
+int 
+mpls_tunnel_add (struct mpls_tunnel_req  *req)
+{
+
+	int result = -EINVAL;
+	struct net_device *dev = __dev_get_by_name (req->mt_ifname);
+	if (dev) {
+		result = __mpls_tunnel_add (dev);
+		dev_put (dev);
+	}
+	MPLS_EXIT;
+	return result;
+}
+
 module_init(mpls_tunnel_init_module);
 module_exit(mpls_tunnel_exit_module);
+
+/****
+ * EXPORTED SYMBOLS
+ **/
+EXPORT_SYMBOL(mpls_tunnel_add);

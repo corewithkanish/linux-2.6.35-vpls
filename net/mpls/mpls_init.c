@@ -222,6 +222,9 @@ mpls_init_module (void)
 	dev_add_pack(&mpls_mc_packet_type);
 	register_netdevice_notifier(&mpls_netdev_notifier);
 
+	/*add by here */
+	mpls_interrupt =  mpls_regular_interrupt;
+
 	return 0;
 }
 

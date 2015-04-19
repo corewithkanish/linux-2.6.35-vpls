@@ -34,6 +34,7 @@
 #include <net/route.h>
 #include <net/mpls.h>
 #include <linux/genetlink.h>
+#include <linux/socket.h>
 #include <net/net_namespace.h>
 
 LIST_HEAD(mpls_ilm_list);

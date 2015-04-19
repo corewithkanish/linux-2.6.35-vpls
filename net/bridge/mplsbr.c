@@ -24,10 +24,12 @@ static void dumb_neigh_error(struct neighbour *neigh,struct sk_buff *skb)
 
 static int dumb_neigh_dev_xmit(struct sk_buff *skb)
 {
-	skb->dev = skb_dst(skb)->dev;
-	skb->ip_summed = CHECKSUM_NONE;
-	dev_queue_xmit(skb);
-	return 0;
+	struct net_device *dev;
+        dev = __dev_get_by_name(skb->dev->name);
+        skb->dev = skb->dst->dev;
+        skb->ip_summed = CHECKSUM_NONE;
+        mpls_re_tx(skb,dev);
+        return 0;
 }
 
 

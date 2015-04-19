@@ -26,6 +26,8 @@ target(struct sk_buff *skb, const struct xt_action_param *par)
 {
 	const struct xt_mpls_target_info *mplsinfo = par->targinfo;
 	struct mpls_nhlfe *nhlfe = mplsinfo->nhlfe;
+	
+	printk(KERN_WARNING "EBTABLE_targe enter.\n");
 
 	if (!skb_make_writable(skb, 0))
 		return EBT_DROP;

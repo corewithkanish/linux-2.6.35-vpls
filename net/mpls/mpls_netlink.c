@@ -687,11 +687,91 @@ static int genl_mpls_labelspace_dump(struct sk_buff *skb,
 	return skb->len;
 }
 
+//add by here for create the tunnel Interface
+
+/* tunnel netlink support */
+
+//static int mpls_fill_tunnel(struct sk_buff *skb, struct net_device *dev,
+//	    u32 pid, u32 seq, int flag, int event)
+static int mpls_fill_tunnel(struct sk_buff *skb,
+	    u32 pid, u32 seq, int flag, int event)
+{
+	struct mpls_tunnel_req ls;
+	void *hdr;
+
+	hdr = genlmsg_put(skb, pid, seq, PF_MPLS, 0, flag,
+		event, genl_mpls.version);
+/*
+	ls.mls_ifindex = dev->ifindex;
+	if (dev->mpls_ptr) {
+		ls.mls_labelspace =
+			((struct mpls_interface*)dev->mpls_ptr)->labelspace;
+	} else {
+		ls.mls_labelspace = -1;
+	}*/
+
+	NLA_PUT(skb, MPLS_ATTR_TUNNEL, sizeof(ls), &ls);
+
+	MPLS_DEBUG("Exit: length\n");
+	return genlmsg_end(skb, hdr);
+
+nla_put_failure:
+	MPLS_DEBUG("Exit: -1\n");
+	return genlmsg_cancel(skb, hdr);
+}
+
+
+void mpls_tunnel_event(int event)
+{
+	struct sk_buff *skb;
+	int err;
+
+	MPLS_ENTER;
+	skb = nlmsg_new(NLMSG_GOODSIZE);
+	if (skb == NULL) {
+		MPLS_DEBUG("Exit: EINVAL\n");
+		return;
+	}
+
+	//err = mpls_fill_tunnel(skb, dev, 0, 0, 0, event);
+	err = mpls_fill_tunnel(skb, 0, 0, 0, event);
+	if (err < 0) {
+		nlmsg_free(skb);
+		MPLS_DEBUG("Exit: EINVAL\n");
+		return;
+	}
+	genlmsg_multicast(skb, 0, MPLS_GRP_TUNNEL);
+	MPLS_EXIT;
+}
+
+static int genl_mpls_tunnel_add(struct sk_buff *skb, struct genl_info *info)
+{
+	struct mpls_tunnel_req *tn;
+	int retval = -EINVAL;
+	MPLS_ENTER;
+	tn = nla_data(info->attrs[MPLS_ATTR_TUNNEL]);
+	retval = mpls_tunnel_add(tn);
+	MPLS_DEBUG("Exit: %d\n", retval);
+	return retval;
+}
+static int genl_mpls_tunnel_del(struct sk_buff *skb, struct genl_info *info)
+{
+	struct mpls_tunnel_req *tn;
+	int retval = -EINVAL;
+	MPLS_ENTER;
+	tn = nla_data(info->attrs[MPLS_ATTR_TUNNEL]);
+	retval = mpls_tunnel_del(tn);
+	MPLS_DEBUG("Exit: %d\n", retval);
+	return retval;
+}
+//end by here
+
 static struct nla_policy genl_mpls_policy[MPLS_ATTR_MAX+1] __read_mostly = {
 	[MPLS_ATTR_ILM] = { .len = sizeof(struct mpls_in_label_req) },
 	[MPLS_ATTR_NHLFE] = { .len = sizeof(struct mpls_out_label_req) },
 	[MPLS_ATTR_XC] = { .len = sizeof(struct mpls_xconnect_req) },
 	[MPLS_ATTR_LABELSPACE] = {.len = sizeof(struct mpls_labelspace_req)},
+	[MPLS_ATTR_TUNNEL] = {.len = sizeof(struct mpls_labelspace_req)},
 	[MPLS_ATTR_INSTR] = { .len = sizeof(struct mpls_instr_req) },
 	[MPLS_ATTR_STATS] = { .len = sizeof(struct gnet_stats_basic) },
 };
@@ -758,6 +838,18 @@ static struct genl_ops genl_mpls_labelspace_get_ops = {
 	.dumpit		= genl_mpls_labelspace_dump,
 	.policy		= genl_mpls_policy,
 };
+//add by here for create the new tunnel interface
+static struct genl_ops genl_mpls_tunnel_add_ops = {
+	.cmd		= MPLS_CMD_ADDTUNNEL,
+	.doit		= genl_mpls_tunnel_add,
+	.policy		= genl_mpls_policy,
+}; 
+static struct genl_ops genl_mpls_tunnel_del_ops = {
+	.cmd		= MPLS_CMD_DELTUNNEL,
+	.doit		= genl_mpls_tunnel_del,
+	.policy		= genl_mpls_policy,
+}; 
+//end by here
 
 int __init mpls_netlink_init(void)
 {
@@ -785,11 +877,29 @@ int __init mpls_netlink_init(void)
 		return -EINVAL;
 	}
 
+	//add by here for create the tunnel interface
+	err += genl_register_ops(&genl_mpls, &genl_mpls_tunnel_add_ops);
+	err += genl_register_ops(&genl_mpls, &genl_mpls_tunnel_del_ops);
+	if (err < 0)
+		goto errout_register_5;
+	//end by here
+
 	return 0;
+
+errout_register_5:
+	genl_unregister_ops(&genl_mpls, &genl_mpls_tunnel_add_ops);
+	genl_unregister_ops(&genl_mpls, &genl_mpls_tunnel_del_ops);
+	printk(MPLS_ERR "MPLS: failed to register with genetlink\n");
+	return -EINVAL;
 }
 
 void __exit mpls_netlink_exit(void)
 {
+	//add by here for create the tunnel interface
+	genl_unregister_ops(&genl_mpls, &genl_mpls_tunnel_add_ops);
+	//add by here for create the tunnel interface
+	genl_unregister_ops(&genl_mpls, &genl_mpls_tunnel_del_ops);
+
 	genl_unregister_ops(&genl_mpls, &genl_mpls_labelspace_get_ops);
 	genl_unregister_ops(&genl_mpls, &genl_mpls_labelspace_set_ops);
 
