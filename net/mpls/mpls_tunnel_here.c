@@ -36,7 +36,7 @@
  *		o implemented device IOCTL for setting NHLFE
  *****************************************************************************/
 
-#include <linux/config.h>
+//#include <linux/config.h>
 #include <linux/in.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -70,9 +70,6 @@
 #include <linux/in6.h>
 #include <asm/checksum.h>
 
-/*  Obtain private MPLS extension for a netdevice */
-#define mpls_dev2mtp(MPLSDEV) \
-	((struct mpls_tunnel_private *)((MPLSDEV)->priv))
 
 /* Obtain mentor netdevice for a given (private) tunnel */
 #define mpls_mtp2dev(MPLSMTP) \
@@ -177,14 +174,15 @@ void mpls_enqueue_buf(struct net_device *dev, struct mpls_packet *pkt)
 
 struct mpls_packet *mpls_dequeue_buf(struct net_device *dev)
 {
-	//struct mpls_tunnel_private *priv = netdev_priv(dev);
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
 	struct mpls_packet *pkt;
 	unsigned long flags;
-	spin_lock_irqsave(&mpls_dev2mtp(dev)->lock, flags);
-	pkt = mpls_dev2mtp(dev)->rx_queue;
+
+	spin_lock_irqsave(&priv->lock, flags);
+	pkt = priv->rx_queue;
 	if (pkt != NULL)
-		mpls_dev2mtp(dev)->rx_queue= pkt->next;
-	spin_unlock_irqrestore(&mpls_dev2mtp(dev)->lock, flags);
+		priv->rx_queue= pkt->next;
+	spin_unlock_irqrestore(&priv->lock, flags);
 	return pkt;
 }
 
@@ -498,11 +496,12 @@ static int mpls_tunnel_set_nhlfe (struct net_device* dev, unsigned int key)
 {
 	struct mpls_nhlfe *nhlfe = NULL;
 	struct mpls_nhlfe *newnhlfe = NULL;
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
 
 	MPLS_ENTER;
 
 	/* Get previous NHLFE (it is held by mtp)  */ 
-	nhlfe = mpls_dev2mtp(dev)->mtp_nhlfe;
+	nhlfe = priv->mtp_nhlfe;
 
 	/* If key is zero, the nhlfe for tunnel is reset, we are done */ 
 	if (!key) {
@@ -511,7 +510,7 @@ static int mpls_tunnel_set_nhlfe (struct net_device* dev, unsigned int key)
 			mpls_nhlfe_release(nhlfe);
 		}
 		MPLS_DEBUG("reset nhlfe %x\n", key);
-		mpls_dev2mtp(dev)->mtp_nhlfe = NULL;
+		priv->mtp_nhlfe = NULL;
 		dev->iflink = 0;
 		MPLS_EXIT;
 		return 0; 
@@ -534,7 +533,7 @@ static int mpls_tunnel_set_nhlfe (struct net_device* dev, unsigned int key)
 	}
 
 	/* Commit Set new NHLFE (it is held by mtp)  */ 
- 	mpls_dev2mtp(dev)->mtp_nhlfe = newnhlfe;
+ 	priv->mtp_nhlfe = newnhlfe;
 
 	if (newnhlfe) {
 		/* Set new MTU for the tunnel device */
@@ -592,6 +591,7 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 {
 	const char *err_nonhlfe = "NHLFE was invalid";
 	int result = 0;
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
 	
 	MPLS_ENTER;
 	MPLSCB(skb)->label = 0;
@@ -602,7 +602,7 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 	MPLSCB(skb)->popped_bos = (MPLSCB(skb)->bos) ? 0 : 1;
 
 	dev->trans_start = jiffies;
-	if (mpls_dev2mtp(dev)->mtp_nhlfe) {
+	if (priv->mtp_nhlfe) {
 		MPLS_DEBUG(
 		"Skb to Send\n"
 		"Device %s \n"
@@ -614,17 +614,17 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 		);
 			
 		MPLS_DEBUG("Using NHLFE %08x\n", 
-			mpls_dev2mtp(dev)->mtp_nhlfe->nhlfe_key);
-		mpls_dev2mtp(dev)->stat.tx_packets++;
-		mpls_dev2mtp(dev)->stat.tx_bytes += skb->len;
+			priv->mtp_nhlfe->nhlfe_key);
+		priv->stat.tx_packets++;
+		priv->stat.tx_bytes += skb->len;
 		MPLS_DEBUG_CALL(mpls_skb_dump(skb));
-		result = mpls_output2 (skb,mpls_dev2mtp(dev)->mtp_nhlfe);
+		result = mpls_output2 (skb, priv->mtp_nhlfe);
 		MPLS_EXIT;
 		return result; 
 	}
 
 	dev_kfree_skb(skb);
-	mpls_dev2mtp(dev)->stat.tx_errors++;
+	priv->stat.tx_errors++;
 	MPLS_DEBUG("exit - %s\n", err_nonhlfe);
 	return 0;
 
@@ -640,7 +640,8 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 static struct net_device_stats* 
 mpls_tunnel_get_stats (struct net_device *dev) 
 {
-	return &((mpls_dev2mtp(dev))->stat);
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
+	return &(priv->stat);
 }
 
 
@@ -659,8 +660,10 @@ mpls_tunnel_get_stats (struct net_device *dev)
 static int 
 mpls_tunnel_change_mtu (struct net_device *dev, int new_mtu) 
 {
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
+
 	MPLS_ENTER;
-	if (new_mtu < 4 || new_mtu > mpls_dev2mtp(dev)->mtp_nhlfe->nhlfe_mtu)
+	if (new_mtu < 4 || new_mtu > priv->mtp_nhlfe->nhlfe_mtu)
 		return -EINVAL;
 	MPLS_EXIT;
 	return 0;
@@ -681,6 +684,7 @@ mpls_tunnel_change_mtu (struct net_device *dev, int new_mtu)
 static int mpls_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	int retval = -EINVAL;
+	struct mpls_tunnel_private *priv = netdev_priv(dev);
 
 	MPLS_ENTER;
 	switch (cmd) {
@@ -690,10 +694,10 @@ static int mpls_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	    /* get NHLFE */
 	    case SIOCDEVPRIVATE + 1:
-		if (mpls_dev2mtp(dev)->mtp_nhlfe) {
+		if (priv->mtp_nhlfe) {
 			ifr->ifr_ifru.ifru_ivalue =
-				mpls_dev2mtp(dev)->mtp_nhlfe ?
-				mpls_dev2mtp(dev)->mtp_nhlfe->nhlfe_key : 0;
+				priv->mtp_nhlfe ?
+				priv->mtp_nhlfe->nhlfe_key : 0;
 			retval = 0;
 		}
 		break;
@@ -799,7 +803,7 @@ __mpls_tunnel_add (char *if_na)
 	printk("Registered MPLS tunnel %s\n",dev->name);
 
 	/* Back reference to the netdevice */
-	mtp = mpls_dev2mtp(dev);
+	mtp = priv;
 	mtp->mtp_dev = dev;
 
 	strncpy(mpls_tunnel_name, dev->name, IFNAMSIZ);

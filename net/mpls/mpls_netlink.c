@@ -699,8 +699,7 @@ static int mpls_fill_tunnel(struct sk_buff *skb,
 	struct mpls_tunnel_req ls;
 	void *hdr;
 
-	hdr = genlmsg_put(skb, pid, seq, PF_MPLS, 0, flag,
-		event, genl_mpls.version);
+	hdr = genlmsg_put(skb, pid, seq, &genl_mpls, flag, event);
 /*
 	ls.mls_ifindex = dev->ifindex;
 	if (dev->mpls_ptr) {
@@ -716,8 +715,9 @@ static int mpls_fill_tunnel(struct sk_buff *skb,
 	return genlmsg_end(skb, hdr);
 
 nla_put_failure:
-	MPLS_DEBUG("Exit: -1\n");
-	return genlmsg_cancel(skb, hdr);
+	genlmsg_cancel(skb, hdr);
+        MPLS_DEBUG("Exit: -1\n");
+        return -ENOMEM;
 }
 
 
@@ -727,7 +727,7 @@ void mpls_tunnel_event(int event)
 	int err;
 
 	MPLS_ENTER;
-	skb = nlmsg_new(NLMSG_GOODSIZE);
+	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
 	if (skb == NULL) {
 		MPLS_DEBUG("Exit: EINVAL\n");
 		return;
@@ -740,7 +740,7 @@ void mpls_tunnel_event(int event)
 		MPLS_DEBUG("Exit: EINVAL\n");
 		return;
 	}
-	genlmsg_multicast(skb, 0, MPLS_GRP_TUNNEL);
+	genlmsg_multicast(skb, 0, MPLS_GRP_TUNNEL, GFP_KERNEL);
 	MPLS_EXIT;
 }
 
