@@ -592,6 +592,7 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 	const char *err_nonhlfe = "NHLFE was invalid";
 	int result = 0;
 	struct mpls_tunnel_private *priv = netdev_priv(dev);
+	struct dst_entry *dst = (struct dst_entry*)skb->_skb_refdst;
 	
 	MPLS_ENTER;
 	MPLSCB(skb)->label = 0;
@@ -609,7 +610,7 @@ mpls_tunnel_xmit (struct sk_buff *skb, struct net_device *dev)
 		"DST %p\n"
 		"Protocol ID %04x\n",
 		skb->dev? skb->dev->name : "<>",
-		skb->dst ? skb->dst : NULL,
+		dst ? dst : NULL,
 		ntohs(skb->protocol)
 		);
 			
@@ -725,23 +726,27 @@ static int mpls_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  *	real physical device).
  **/
 
+static const struct net_device_ops mpls_tunnel_ndo = {
+        .ndo_open = mpls_tunnel_open,
+	.ndo_stop = mpls_release,
+	.ndo_tx_timeout	= mpls_tx_timeout,
+	.ndo_init = NULL,
+	.ndo_uninit = NULL,
+        .ndo_do_ioctl = mpls_tunnel_ioctl,
+        .ndo_start_xmit = mpls_tunnel_xmit,
+        .ndo_get_stats = mpls_tunnel_get_stats,
+        .ndo_change_mtu = mpls_tunnel_change_mtu,
+};
+
+
 static void 
 mpls_tunnel_setup (struct net_device *dev) 
 {
 	struct mpls_tunnel_private *priv; //add by here
 	SET_MODULE_OWNER(dev);
 	/* Callbacks */
-	dev->open            = mpls_tunnel_open; //add by here
-	dev->stop            = mpls_release; //add by here 
-	dev->tx_timeout			 = mpls_tx_timeout;//add by here
-	//dev->open            = NULL; 
-	dev->init            = NULL; 
-	dev->uninit	     = NULL; 
-	dev->do_ioctl        = mpls_tunnel_ioctl;
-	dev->destructor	     = mpls_tunnel_destructor;
-	dev->hard_start_xmit = mpls_tunnel_xmit;
-	dev->get_stats	     = mpls_tunnel_get_stats;
-	dev->change_mtu	     = mpls_tunnel_change_mtu;
+	dev->destructor      = mpls_tunnel_destructor;
+	dev->netdev_ops      = &mpls_tunnel_ndo;
 
 	/* Properties of mpls%d devices */
 	dev->type            = ARPHRD_MPLS_TUNNEL;
@@ -803,7 +808,7 @@ __mpls_tunnel_add (char *if_na)
 	printk("Registered MPLS tunnel %s\n",dev->name);
 
 	/* Back reference to the netdevice */
-	mtp = priv;
+	mtp = netdev_priv(dev);
 	mtp->mtp_dev = dev;
 
 	strncpy(mpls_tunnel_name, dev->name, IFNAMSIZ);
