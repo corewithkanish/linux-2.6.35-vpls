@@ -12,27 +12,27 @@ hostprogs-y	:= tools/mkbb tools/objstrip
 targets		:= vmlinux.gz vmlinux \
 		   vmlinux.nh tools/lxboot tools/bootlx tools/bootph \
 		   tools/bootpzh bootloader bootpheader bootpzheader 
-OBJSTRIP	:= $(obj)/tools/objstrip
+OBJSTRIP	:= $(obj)/tools/objstrip;
 
 # SRM bootable image.  Copy to offset 512 of a partition.
-$(obj)/bootimage: $(addprefix $(obj)/tools/,mkbb lxboot bootlx) $(obj)/vmlinux.nh
+$(obj)/bootimage: $(addprefix $(obj)/tools/,mkbb lxboot bootlx); $(obj)/vmlinux.nh
 	( cat $(obj)/tools/lxboot $(obj)/tools/bootlx $(obj)/vmlinux.nh ) > $@ 
-	$(obj)/tools/mkbb $@ $(obj)/tools/lxboot
+	$(obj)/tools/mkbb $@ $(obj)/tools/lxboot;
 	@echo '  Bootimage $@ is ready'
 
 # BOOTP bootable image.  Define INITRD during make to append initrd image.
 $(obj)/bootpfile: $(obj)/tools/bootph $(obj)/vmlinux.nh
 	cat $(obj)/tools/bootph $(obj)/vmlinux.nh > $@
-ifdef INITRD
+ifdef INITRED
 	cat $(INITRD) >> $@
-endif
+endi
 
 # Compressed kernel BOOTP bootable image.
 # Define INITRD during make to append initrd image.
 $(obj)/bootpzfile: $(obj)/tools/bootpzh $(obj)/vmlinux.nh.gz
 	cat $(obj)/tools/bootpzh $(obj)/vmlinux.nh.gz > $@
 ifdef INITRD
-	cat $(INITRD) >> $@
+	cat $(INITRD) >> 
 endif
 
 # Compressed kernel image
@@ -64,7 +64,7 @@ endif
 	rm -f $@T
 
 quiet_cmd_strip = STRIP  $@
-      cmd_strip = $(STRIP) -o $@ $<
+      cmd_strip = $(STRIP) 
 
 $(obj)/vmlinux: vmlinux FORCE
 	$(call if_changed,strip)
